@@ -15,7 +15,7 @@ app.use(express.json());
 // =========================
 
 const auth = new google.auth.GoogleAuth({
-    keyFile: "./bkp-e-request-f9ea7d6e9814.json",
+    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
     scopes: ["https://www.googleapis.com/auth/spreadsheets"]
 });
 
