@@ -1,4 +1,4 @@
-const API_URL = "bkp-erequest-production.up.railway.app";
+const API_URL = "https://bkp-erequest-production.up.railway.app";
 
 async function api(action, data = {}) {
 
