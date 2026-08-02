@@ -8,7 +8,7 @@ let modalBarang = null;
 
 let editId = null;
 
-const API = "http://localhost:3000";
+const API = "https://bkp-erequest-production.up.railway.app";
 
 const kategoriList = [
 
