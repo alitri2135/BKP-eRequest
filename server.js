@@ -541,6 +541,7 @@ app.post("/barang", async (req, res) => {
             kategori,
             satuan,
             stok
+            namaUser
         } = req.body;
 
         const id = crypto.randomUUID();
