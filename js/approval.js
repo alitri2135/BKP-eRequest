@@ -59,7 +59,11 @@ async function loadApproval(){
 
         }
 
+        console.log("URL:", url);
+        
         const response = await fetch(url);
+        
+        console.log("STATUS:", response.status);
         
         const json = await response.json();
         
