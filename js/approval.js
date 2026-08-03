@@ -60,10 +60,15 @@ async function loadApproval(){
         }
 
         const response = await fetch(url);
+        
         const json = await response.json();
-
-        approval = json.data;
-
+        
+        console.log("JSON:", json);
+        
+        approval = json.data || [];
+        
+        console.log("APPROVAL:", approval);
+        
         renderApproval();
         renderStatApproval();
 
