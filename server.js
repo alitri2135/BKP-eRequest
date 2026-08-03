@@ -1229,12 +1229,6 @@ app.get("/approval/manager", async (req, res) => {
 
         await saveActivity(
 
-            user,
-            aksi == "approve" ? "APPROVE" : "REJECT",
-            row[1]
-
-        );
-
         res.json({
 
             success: true,
