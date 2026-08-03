@@ -1227,8 +1227,6 @@ app.get("/approval/manager", async (req, res) => {
             }))
             .filter(x => x.STATUS === "MENUNGGU_MANAGER");
 
-        await saveActivity(
-
         res.json({
 
             success: true,
