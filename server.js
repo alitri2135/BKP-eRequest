@@ -1227,6 +1227,8 @@ app.get("/approval/manager", async (req, res) => {
             }))
             .filter(x => x.STATUS === "MENUNGGU_MANAGER");
 
+        console.log("MASUK APPROVAL MANAGER");
+        console.log(data);
         res.json({
 
             success: true,
