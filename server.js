@@ -222,19 +222,22 @@ app.get("/dashboard", async (req, res) => {
 
     try {
 
-        const result = await sheets.spreadsheets.values.get({
+        // ==========================
+        // DATA PENGAJUAN
+        // ==========================
+
+        const pengajuanResult = await sheets.spreadsheets.values.get({
 
             spreadsheetId: SPREADSHEET_ID,
-
             range: "Pengajuan!A:L"
 
         });
 
-        const rows = result.data.values || [];
+        const pengajuanRows = pengajuanResult.data.values || [];
 
-        rows.shift();
+        pengajuanRows.shift();
 
-        const data = rows.map(r => ({
+        const data = pengajuanRows.map(r => ({
 
             ID: r[0],
             NO_REQUEST: r[1],
@@ -250,10 +253,37 @@ app.get("/dashboard", async (req, res) => {
 
         }));
 
+        // ==========================
+        // ACTIVITY LOG
+        // ==========================
+
+        const activityResult = await sheets.spreadsheets.values.get({
+
+            spreadsheetId: SPREADSHEET_ID,
+            range: "ActivityLog!A:E"
+
+        });
+
+        let activityRows = activityResult.data.values || [];
+
+        activityRows.shift();
+
+        activityRows = activityRows.reverse().slice(0,10);
+
+        const activity = activityRows.map(r => ({
+
+            WAKTU: r[0] || "",
+            USER: r[1] || "",
+            AKTIVITAS: r[2] || "",
+            KETERANGAN: r[3] || ""
+
+        }));
+
         res.json({
 
             success: true,
-            data
+            data,
+            activity
 
         });
 
