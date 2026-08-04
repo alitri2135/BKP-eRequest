@@ -437,15 +437,10 @@ document.addEventListener("click", async function(e){
     const result = await Swal.fire({
 
         title:"Hapus Barang?",
-
         text:"Data yang dihapus tidak dapat dikembalikan.",
-
         icon:"warning",
-
         showCancelButton:true,
-
         confirmButtonText:"Ya, Hapus",
-
         cancelButtonText:"Batal"
 
     });
@@ -454,13 +449,25 @@ document.addEventListener("click", async function(e){
 
     try{
 
-        const response = await fetch(API+"/barang/"+id,{
+        const response = await fetch(API + "/barang/" + id,{
 
             method:"DELETE"
 
         });
 
         const res = await response.json();
+
+        if(!res.success){
+
+            Swal.fire(
+                "Error",
+                res.message,
+                "error"
+            );
+
+            return;
+
+        }
 
         Swal.fire({
 
@@ -476,7 +483,7 @@ document.addEventListener("click", async function(e){
 
         });
 
-        loadBarang();
+        await loadBarang();
 
     }catch(err){
 
@@ -547,21 +554,21 @@ document.addEventListener("input",function(e){
 
         <tr>
 
-            <td>${item.kode}</td>
+            <td>${item.KODE}</td>
 
-            <td>${item.nama}</td>
+            <td>${item.NAMA}</td>
 
-            <td>${item.kategori}</td>
+            <td>${item.KATEGORI}</td>
 
-            <td>${item.satuan}</td>
+            <td>${item.SATUAN}</td>
 
-            <td>${item.stok}</td>
+            <td>${item.STOCK}</td>
 
             <td>
 
-                <span class="badge ${item.status=="ACTIVE"?"bg-success":"bg-danger"}">
+                <span class="badge ${item.STATUS=="ACTIVE"?"bg-success":"bg-danger"}">
 
-                    ${item.status}
+                    ${item.STATUS}
 
                 </span>
 
@@ -571,7 +578,7 @@ document.addEventListener("input",function(e){
 
                 <button
                     class="btn btn-warning btn-sm btn-edit"
-                    data-id="${item.id}">
+                    data-id="${item.ID}">
 
                     <i class="bi bi-pencil"></i>
 
@@ -579,7 +586,7 @@ document.addEventListener("input",function(e){
 
                 <button
                     class="btn btn-danger btn-sm btn-delete"
-                    data-id="${item.id}">
+                    data-id="${item.ID}">
 
                     <i class="bi bi-trash"></i>
 
