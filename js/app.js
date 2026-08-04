@@ -98,7 +98,7 @@ async function updateDashboard(){
     if(!json.success) return;
 
     const data = json.data || [];
-   const activity = json.activity || [];
+    const activity = json.activity || [];
 
     document.getElementById("dashTotalPengajuan").innerHTML =
         data.length;
@@ -119,15 +119,13 @@ async function updateDashboard(){
             x.STATUS == "DITOLAK"
         ).length;
 
-}
+    // ==========================
+    // RECENT ACTIVITY
+    // ==========================
 
-// ==========================
-// RECENT ACTIVITY
-// ==========================
+    const tbody = document.getElementById("activityBody");
 
-const tbody = document.getElementById("activityBody");
-
-if(tbody){
+    if(!tbody) return;
 
     tbody.innerHTML = "";
 
@@ -141,23 +139,23 @@ if(tbody){
             </tr>
         `;
 
-    }else{
-
-        activity.forEach(item=>{
-
-            tbody.innerHTML += `
-                <tr>
-                    <td>${item.WAKTU}</td>
-                    <td>
-                        <b>${item.USER}</b><br>
-                        <small>${item.AKTIVITAS}</small>
-                    </td>
-                </tr>
-            `;
-
-        });
+        return;
 
     }
+
+    activity.forEach(item=>{
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${item.WAKTU}</td>
+                <td>
+                    <b>${item.USER}</b><br>
+                    <small>${item.AKTIVITAS}</small>
+                </td>
+            </tr>
+        `;
+
+    });
 
 }
 
