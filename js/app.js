@@ -97,7 +97,8 @@ async function updateDashboard(){
 
     if(!json.success) return;
 
-    const data = json.data;
+    const data = json.data || [];
+   const activity = json.activity || [];
 
     document.getElementById("dashTotalPengajuan").innerHTML =
         data.length;
@@ -117,6 +118,46 @@ async function updateDashboard(){
         data.filter(x =>
             x.STATUS == "DITOLAK"
         ).length;
+
+}
+
+// ==========================
+// RECENT ACTIVITY
+// ==========================
+
+const tbody = document.getElementById("activityBody");
+
+if(tbody){
+
+    tbody.innerHTML = "";
+
+    if(activity.length === 0){
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" class="text-center text-secondary">
+                    Belum ada aktivitas.
+                </td>
+            </tr>
+        `;
+
+    }else{
+
+        activity.forEach(item=>{
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.WAKTU}</td>
+                    <td>
+                        <b>${item.USER}</b><br>
+                        <small>${item.AKTIVITAS}</small>
+                    </td>
+                </tr>
+            `;
+
+        });
+
+    }
 
 }
 
