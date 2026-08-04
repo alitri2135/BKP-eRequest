@@ -99,6 +99,8 @@ async function updateDashboard(){
 
     const data = json.data || [];
     const activity = json.activity || [];
+    console.log("Dashboard JSON:", json);
+    console.log("Activity:", activity);
 
     document.getElementById("dashTotalPengajuan").innerHTML =
         data.length;
@@ -124,6 +126,7 @@ async function updateDashboard(){
     // ==========================
 
     const tbody = document.getElementById("activityBody");
+    console.log("activityBody:", tbody);
 
     if(!tbody) return;
 
