@@ -10,408 +10,142 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// =========================
+// =====================================
 // GOOGLE AUTH
-// =========================
+// =====================================
+
+if (!process.env.GOOGLE_CREDENTIALS) {
+    throw new Error("GOOGLE_CREDENTIALS belum diset di Environment Variables");
+}
 
 const auth = new google.auth.GoogleAuth({
     credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+    scopes: [
+        "https://www.googleapis.com/auth/spreadsheets"
+    ]
 });
 
 const sheets = google.sheets({
+
     version: "v4",
     auth
+
 });
 
-const SPREADSHEET_ID = "1DlBjhF4cMIhyoZIVNxVqlf9i2090HhJ8BnDPmNggH88";
+// =====================================
+// CONFIG
+// =====================================
 
-async function saveActivity(user, aktivitas, keterangan){
+const PORT = process.env.PORT || 3000;
 
-    const now = new Date().toLocaleString("id-ID",{
-        timeZone:"Asia/Jakarta"
-    });
+const SPREADSHEET_ID =
+    "1DlBjhF4cMIhyoZIVNxVqlf9i2090HhJ8BnDPmNggH88";
 
-    const result = await sheets.spreadsheets.values.get({
+// =====================================
+// HELPER
+// =====================================
 
-        spreadsheetId: SPREADSHEET_ID,
-        range: "ActivityLog!A:E"
+function nowJakarta() {
 
-    });
+    return new Date().toLocaleString("id-ID", {
 
-    const rows = result.data.values || [];
-
-    rows.push([
-
-        crypto.randomUUID(),
-        user,
-        aktivitas,
-        keterangan,
-        now
-
-    ]);
-
-    await sheets.spreadsheets.values.update({
-
-        spreadsheetId: SPREADSHEET_ID,
-        range: "ActivityLog!A1",
-        valueInputOption: "USER_ENTERED",
-        requestBody:{
-
-            values: rows
-
-        }
+        timeZone: "Asia/Jakarta"
 
     });
 
 }
 
-// =========================
-// HOME
-// =========================
+// =====================================
+// ACTIVITY LOG
+// =====================================
 
-app.get("/users", async (req, res) => {
+async function saveActivity(
 
-    try{
+    user,
+    aktivitas,
+    keterangan
 
-        const result = await sheets.spreadsheets.values.get({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range: "Users!A:G"
-
-        });
-
-        const rows = result.data.values || [];
-
-        rows.shift();
-
-        const data = rows.map(r => ({
-
-            ID: r[0],
-
-            NAMA: r[1],
-
-            USERNAME: r[2],
-
-            PASSWORD: r[3],
-
-            ROLE: r[4],
-
-            STATUS: r[5],
-
-            CREATED_AT: r[6]
-
-        }));
-
-        res.json({
-
-            success: true,
-
-            data
-
-        });
-
-    }catch(err){
-
-        console.log(err);
-
-        res.json({
-
-            success:false,
-
-            message:err.message
-
-        });
-
-    }
-
-});
-
-app.post("/users", async (req, res) => {
-
-    try{
-
-        const{
-
-            nama,
-            username,
-            password,
-            role,
-            status
-
-        }=req.body;
-
-        const id=crypto.randomUUID();
-
-        const hash=crypto
-            .createHash("sha256")
-            .update(password)
-            .digest("hex");
-
-        const created=new Date().toLocaleString("id-ID",{
-
-            timeZone:"Asia/Jakarta"
-
-        });
-
-        await sheets.spreadsheets.values.append({
-
-            spreadsheetId:SPREADSHEET_ID,
-
-            range:"Users!A:G",
-
-            valueInputOption:"USER_ENTERED",
-
-            requestBody:{
-
-                values:[[
-
-                    id,
-
-                    nama,
-
-                    username,
-
-                    hash,
-
-                    role,
-
-                    status || "ACTIVE",
-
-                    created
-
-                ]]
-
-            }
-
-        });
-
-        res.json({
-
-            success:true,
-
-            message:"User berhasil ditambahkan"
-
-        });
-
-    }catch(err){
-
-        console.log(err);
-
-        res.json({
-
-            success:false,
-
-            message:err.message
-
-        });
-
-    }
-
-});
-
-app.put("/users/:id", async (req, res) => {
-
-    try{
-
-        const id = req.params.id;
-
-        const {
-
-            nama,
-            username,
-            password,
-            role,
-            status
-
-        } = req.body;
-
-        const result = await sheets.spreadsheets.values.get({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range: "Users!A:G"
-
-        });
-
-        const rows = result.data.values || [];
-
-        const header = rows.shift();
-
-        const index = rows.findIndex(r => r[0] === id);
-
-        if(index === -1){
-
-            return res.json({
-
-                success:false,
-
-                message:"User tidak ditemukan"
-
-            });
-
-        }
-
-        let hash = rows[index][3];
-
-        if(password && password.trim() !== ""){
-
-            hash = crypto
-                .createHash("sha256")
-                .update(password)
-                .digest("hex");
-
-        }
-
-        rows[index] = [
-
-            id,
-            nama,
-            username,
-            hash,
-            role,
-            status,
-            rows[index][6]
-
-        ];
-
-        await sheets.spreadsheets.values.update({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range: "Users!A1:G",
-
-            valueInputOption: "USER_ENTERED",
-
-            requestBody:{
-
-                values:[header,...rows]
-
-            }
-
-        });
-
-        res.json({
-
-            success:true,
-
-            message:"User berhasil diupdate"
-
-        });
-
-    }catch(err){
-
-        console.log(err);
-
-        res.json({
-
-            success:false,
-
-            message:err.message
-
-        });
-
-    }
-
-});
-
-
-app.delete("/users/:id", async (req, res) => {
-
-    try{
-
-        const id = req.params.id;
-
-        const result = await sheets.spreadsheets.values.get({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range: "Users!A:G"
-
-        });
-
-        const rows = result.data.values || [];
-
-        const header = rows.shift();
-
-        const index = rows.findIndex(r => r[0] === id);
-
-        if(index === -1){
-
-            return res.json({
-
-                success:false,
-
-                message:"User tidak ditemukan"
-
-            });
-
-        }
-
-        rows.splice(index,1);
-
-        await sheets.spreadsheets.values.clear({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range:"Users!A:G"
-
-        });
-
-        await sheets.spreadsheets.values.update({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range:"Users!A1",
-
-            valueInputOption:"USER_ENTERED",
-
-            requestBody:{
-
-                values:[header,...rows]
-
-            }
-
-        });
-
-        res.json({
-
-            success:true,
-
-            message:"User berhasil dihapus"
-
-        });
-
-    }catch(err){
-
-        console.log(err);
-
-        res.json({
-
-            success:false,
-
-            message:err.message
-
-        });
-
-    }
-
-});
-
-// =========================
-// LOGIN
-// =========================
-
-app.post("/login", async (req, res) => {
-
-    const { username, password } = req.body;
+) {
 
     try {
 
         const result = await sheets.spreadsheets.values.get({
+
             spreadsheetId: SPREADSHEET_ID,
+
+            range: "ActivityLog!A:E"
+
+        });
+
+        const rows = result.data.values || [];
+
+        rows.push([
+
+            crypto.randomUUID(),
+
+            user,
+
+            aktivitas,
+
+            keterangan,
+
+            nowJakarta()
+
+        ]);
+
+        await sheets.spreadsheets.values.update({
+
+            spreadsheetId: SPREADSHEET_ID,
+
+            range: "ActivityLog!A1",
+
+            valueInputOption: "USER_ENTERED",
+
+            requestBody: {
+
+                values: rows
+
+            }
+
+        });
+
+    } catch (err) {
+
+        console.log("Activity Log Error");
+
+        console.log(err);
+
+    }
+
+}
+
+// =====================================
+// LOGIN
+// =====================================
+
+app.post("/login", async (req, res) => {
+
+    try {
+
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+
+            return res.json({
+
+                success: false,
+                message: "Username dan Password wajib diisi."
+
+            });
+
+        }
+
+        const result = await sheets.spreadsheets.values.get({
+
+            spreadsheetId: SPREADSHEET_ID,
+
             range: "Users!A:G"
+
         });
 
         const rows = result.data.values || [];
@@ -423,29 +157,28 @@ app.post("/login", async (req, res) => {
             .update(password)
             .digest("hex");
 
-        console.log("USERNAME :", username);
-        console.log("PASSWORD :", password);
-        console.log("HASH :", hash);
-        console.log(rows);
-
         const user = rows.find(r =>
+
             r[2] === username &&
             r[3] === hash &&
             r[5] === "ACTIVE"
+
         );
 
         if (!user) {
 
             return res.json({
+
                 success: false,
-                message: "Username atau Password salah"
+                message: "Username atau Password salah."
+
             });
 
         }
 
         await saveActivity(
 
-            user[1],      // Nama user
+            user[1],
             "LOGIN",
             "Login ke sistem"
 
@@ -459,6 +192,7 @@ app.post("/login", async (req, res) => {
 
                 id: user[0],
                 nama: user[1],
+                username: user[2],
                 role: user[4]
 
             }
@@ -469,23 +203,88 @@ app.post("/login", async (req, res) => {
 
         console.log(err);
 
-        res.status(500).json(err);
+        res.json({
+
+            success: false,
+            message: err.message
+
+        });
 
     }
 
 });
 
-// =========================
+// =====================================
+// DASHBOARD
+// =====================================
+
+app.get("/dashboard", async (req, res) => {
+
+    try {
+
+        const result = await sheets.spreadsheets.values.get({
+
+            spreadsheetId: SPREADSHEET_ID,
+
+            range: "Pengajuan!A:L"
+
+        });
+
+        const rows = result.data.values || [];
+
+        rows.shift();
+
+        const data = rows.map(r => ({
+
+            ID: r[0],
+            NO_REQUEST: r[1],
+            TANGGAL: r[2],
+            USER: r[3],
+            TOTAL_ITEM: Number(r[4] || 0),
+            KETERANGAN: r[5],
+            STATUS: r[6],
+            APPROVAL1: r[7],
+            APPROVAL2: r[8],
+            APPROVED_AT: r[9],
+            CREATED_AT: r[10]
+
+        }));
+
+        res.json({
+
+            success: true,
+            data
+
+        });
+
+    } catch (err) {
+
+        console.log(err);
+
+        res.json({
+
+            success: false,
+            message: err.message
+
+        });
+
+    }
+
+});
+
+// =====================================
 // GET BARANG
-// =========================
+// =====================================
 
 app.get("/barang", async (req, res) => {
 
     try {
 
         const result = await sheets.spreadsheets.values.get({
+
             spreadsheetId: SPREADSHEET_ID,
             range: "Barang!A:H"
+
         });
 
         const rows = result.data.values || [];
@@ -499,7 +298,7 @@ app.get("/barang", async (req, res) => {
             NAMA: r[2],
             KATEGORI: r[3],
             SATUAN: r[4],
-            STOK: r[5],
+            STOK: Number(r[5] || 0),
             STATUS: r[6],
             CREATED_AT: r[7]
 
@@ -527,26 +326,65 @@ app.get("/barang", async (req, res) => {
 
 });
 
-// =========================
+// =====================================
 // TAMBAH BARANG
-// =========================
+// =====================================
 
 app.post("/barang", async (req, res) => {
 
     try {
 
         const {
+
             kode,
             nama,
             kategori,
             satuan,
-            stok
+            stok,
             namaUser
+
         } = req.body;
 
-        const id = crypto.randomUUID();
+        if (
+            !kode ||
+            !nama ||
+            !kategori ||
+            !satuan ||
+            stok === undefined
+        ) {
 
-        const created = new Date().toLocaleString("id-ID");
+            return res.json({
+
+                success: false,
+                message: "Semua data barang wajib diisi."
+
+            });
+
+        }
+
+        const cek = await sheets.spreadsheets.values.get({
+
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Barang!A:H"
+
+        });
+
+        const rows = cek.data.values || [];
+
+        rows.shift();
+
+        const sudahAda = rows.find(r => r[1] === kode);
+
+        if (sudahAda) {
+
+            return res.json({
+
+                success: false,
+                message: "Kode barang sudah digunakan."
+
+            });
+
+        }
 
         await sheets.spreadsheets.values.append({
 
@@ -560,14 +398,14 @@ app.post("/barang", async (req, res) => {
 
                 values: [[
 
-                    id,
+                    crypto.randomUUID(),
                     kode,
                     nama,
                     kategori,
                     satuan,
                     stok,
                     "ACTIVE",
-                    created
+                    nowJakarta()
 
                 ]]
 
@@ -576,15 +414,17 @@ app.post("/barang", async (req, res) => {
         });
 
         await saveActivity(
-            namaUser,
+
+            namaUser || "SYSTEM",
             "TAMBAH BARANG",
             nama
+
         );
 
         res.json({
 
             success: true,
-            message: "Barang berhasil ditambahkan"
+            message: "Barang berhasil ditambahkan."
 
         });
 
@@ -603,9 +443,9 @@ app.post("/barang", async (req, res) => {
 
 });
 
-// =========================
+// =====================================
 // UPDATE BARANG
-// =========================
+// =====================================
 
 app.put("/barang/:id", async (req, res) => {
 
@@ -614,11 +454,13 @@ app.put("/barang/:id", async (req, res) => {
         const id = req.params.id;
 
         const {
+
             nama,
             kategori,
             satuan,
             stok,
             status
+
         } = req.body;
 
         const result = await sheets.spreadsheets.values.get({
@@ -628,16 +470,18 @@ app.put("/barang/:id", async (req, res) => {
 
         });
 
-        const rows = result.data.values;
+        const rows = result.data.values || [];
+
+        const header = rows.shift();
 
         const index = rows.findIndex(r => r[0] === id);
 
-        if(index === -1){
+        if (index === -1) {
 
             return res.json({
 
-                success:false,
-                message:"Barang tidak ditemukan"
+                success: false,
+                message: "Barang tidak ditemukan."
 
             });
 
@@ -646,7 +490,7 @@ app.put("/barang/:id", async (req, res) => {
         rows[index] = [
 
             id,
-            rows[index][1], // kode tetap
+            rows[index][1],
             nama,
             kategori,
             satuan,
@@ -660,13 +504,18 @@ app.put("/barang/:id", async (req, res) => {
 
             spreadsheetId: SPREADSHEET_ID,
 
-            range:`Barang!A${index+1}:H${index+1}`,
+            range: "Barang!A1",
 
-            valueInputOption:"USER_ENTERED",
+            valueInputOption: "USER_ENTERED",
 
-            requestBody:{
+            requestBody: {
 
-                values:[rows[index]]
+                values: [
+
+                    header,
+                    ...rows
+
+                ]
 
             }
 
@@ -674,19 +523,19 @@ app.put("/barang/:id", async (req, res) => {
 
         res.json({
 
-            success:true,
-            message:"Barang berhasil diupdate"
+            success: true,
+            message: "Barang berhasil diupdate."
 
         });
 
-    } catch(err){
+    } catch (err) {
 
         console.log(err);
 
         res.json({
 
-            success:false,
-            message:err.message
+            success: false,
+            message: err.message
 
         });
 
@@ -694,9 +543,9 @@ app.put("/barang/:id", async (req, res) => {
 
 });
 
-// =========================
+// =====================================
 // DELETE BARANG
-// =========================
+// =====================================
 
 app.delete("/barang/:id", async (req, res) => {
 
@@ -713,40 +562,39 @@ app.delete("/barang/:id", async (req, res) => {
 
         const rows = result.data.values || [];
 
+        const header = rows.shift();
+
         const index = rows.findIndex(r => r[0] === id);
 
-        if(index === -1){
+        if (index === -1) {
 
             return res.json({
 
-                success:false,
-                message:"Barang tidak ditemukan"
+                success: false,
+                message: "Barang tidak ditemukan."
 
             });
 
         }
 
-        rows.splice(index,1);
-
-        await sheets.spreadsheets.values.clear({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range:"Barang!A:H"
-
-        });
+        rows.splice(index, 1);
 
         await sheets.spreadsheets.values.update({
 
             spreadsheetId: SPREADSHEET_ID,
 
-            range:"Barang!A1",
+            range: "Barang!A1",
 
-            valueInputOption:"USER_ENTERED",
+            valueInputOption: "USER_ENTERED",
 
-            requestBody:{
+            requestBody: {
 
-                values:rows
+                values: [
+
+                    header,
+                    ...rows
+
+                ]
 
             }
 
@@ -754,19 +602,19 @@ app.delete("/barang/:id", async (req, res) => {
 
         res.json({
 
-            success:true,
-            message:"Barang berhasil dihapus"
+            success: true,
+            message: "Barang berhasil dihapus."
 
         });
 
-    } catch(err){
+    } catch (err) {
 
         console.log(err);
 
         res.json({
 
-            success:false,
-            message:err.message
+            success: false,
+            message: err.message
 
         });
 
@@ -774,119 +622,18 @@ app.delete("/barang/:id", async (req, res) => {
 
 });
 
-app.put("/barang/:id", async (req, res) => {
-
-    try{
-
-        const id=req.params.id;
-
-        const {
-
-            kode,
-            nama,
-            kategori,
-            satuan,
-            stok,
-            status
-
-        }=req.body;
-
-        const result=await sheets.spreadsheets.values.get({
-
-            spreadsheetId:SPREADSHEET_ID,
-            range:"Barang!A:H"
-
-        });
-
-        const rows=result.data.values||[];
-
-        let rowIndex=-1;
-
-        for(let i=1;i<rows.length;i++){
-
-            if(rows[i][0]===id){
-
-                rowIndex=i+1;
-                break;
-
-            }
-
-        }
-
-        if(rowIndex==-1){
-
-            return res.json({
-
-                success:false,
-                message:"Barang tidak ditemukan"
-
-            });
-
-        }
-
-        await sheets.spreadsheets.values.update({
-
-            spreadsheetId:SPREADSHEET_ID,
-
-            range:`Barang!A${rowIndex}:H${rowIndex}`,
-
-            valueInputOption:"USER_ENTERED",
-
-            requestBody:{
-
-                values:[[
-
-                    id,
-                    kode,
-                    nama,
-                    kategori,
-                    satuan,
-                    stok,
-                    status,
-                    rows[rowIndex-1][7]
-
-                ]]
-
-            }
-
-        });
-
-        res.json({
-
-            success:true,
-            message:"Barang berhasil diupdate"
-
-        });
-
-    }catch(err){
-
-        console.log(err);
-
-        res.json({
-
-            success:false,
-            message:err.message
-
-        });
-
-    }
-
-});
-
-
-// =========================
+// =====================================
 // GET PENGAJUAN
-// =========================
+// =====================================
 
 app.get("/pengajuan", async (req, res) => {
 
-    try{
+    try {
 
         const result = await sheets.spreadsheets.values.get({
 
-            spreadsheetId:SPREADSHEET_ID,
-
-            range:"Pengajuan!A:L"
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Pengajuan!A:L"
 
         });
 
@@ -894,39 +641,37 @@ app.get("/pengajuan", async (req, res) => {
 
         rows.shift();
 
-        const data = rows.map(r=>({
+        const data = rows.map(r => ({
 
-            ID:r[0],
-            NO_REQUEST:r[1],
-            TANGGAL:r[2],
-            USER:r[3],
-            TOTAL_ITEM:r[4],
-            KETERANGAN:r[5],
-            STATUS:r[6],
-            APPROVAL1:r[7],
-            APPROVAL2:r[8],
-            APPROVED_AT:r[9],
-            CREATED_AT:r[10]
+            ID: r[0],
+            NO_REQUEST: r[1],
+            TANGGAL: r[2],
+            USER: r[3],
+            TOTAL_ITEM: Number(r[4] || 0),
+            KETERANGAN: r[5],
+            STATUS: r[6],
+            APPROVAL1: r[7],
+            APPROVAL2: r[8],
+            APPROVED_AT: r[9],
+            CREATED_AT: r[10]
 
         }));
 
         res.json({
 
-            success:true,
-
+            success: true,
             data
 
         });
 
-    }catch(err){
+    } catch (err) {
 
         console.log(err);
 
         res.json({
 
-            success:false,
-
-            message:err.message
+            success: false,
+            message: err.message
 
         });
 
@@ -934,11 +679,15 @@ app.get("/pengajuan", async (req, res) => {
 
 });
 
+// =====================================
+// TAMBAH PENGAJUAN
+// =====================================
+
 app.post("/pengajuan", async (req, res) => {
 
-    try{
+    try {
 
-        const{
+        const {
 
             tanggal,
             user,
@@ -947,31 +696,41 @@ app.post("/pengajuan", async (req, res) => {
 
         } = req.body;
 
+        if (
+            !tanggal ||
+            !user ||
+            !Array.isArray(detail) ||
+            detail.length === 0
+        ) {
+
+            return res.json({
+
+                success: false,
+                message: "Data pengajuan belum lengkap."
+
+            });
+
+        }
+
         const id = crypto.randomUUID();
 
         const noRequest = "REQ-" + Date.now();
 
-        const created = new Date().toLocaleString("id-ID",{
+        const created = nowJakarta();
 
-            timeZone:"Asia/Jakarta"
-
-        });
-
-        // =========================
-        // HEADER PENGAJUAN
-        // =========================
+        // HEADER
 
         await sheets.spreadsheets.values.append({
 
-            spreadsheetId:SPREADSHEET_ID,
+            spreadsheetId: SPREADSHEET_ID,
 
-            range:"Pengajuan!A:L",
+            range: "Pengajuan!A:L",
 
-            valueInputOption:"USER_ENTERED",
+            valueInputOption: "USER_ENTERED",
 
-            requestBody:{
+            requestBody: {
 
-                values:[[
+                values: [[
 
                     id,
                     noRequest,
@@ -991,9 +750,7 @@ app.post("/pengajuan", async (req, res) => {
 
         });
 
-        // =========================
-        // DETAIL PENGAJUAN
-        // =========================
+        // DETAIL
 
         const detailRows = detail.map(item => [
 
@@ -1008,44 +765,43 @@ app.post("/pengajuan", async (req, res) => {
 
         await sheets.spreadsheets.values.append({
 
-            spreadsheetId:SPREADSHEET_ID,
+            spreadsheetId: SPREADSHEET_ID,
 
-            range:"DetailPengajuan!A:F",
+            range: "DetailPengajuan!A:F",
 
-            valueInputOption:"USER_ENTERED",
+            valueInputOption: "USER_ENTERED",
 
-            requestBody:{
+            requestBody: {
 
-                values:detailRows
+                values: detailRows
 
             }
 
         });
 
-
         await saveActivity(
+
             user,
             "PENGAJUAN",
             noRequest
+
         );
 
         res.json({
 
-            success:true,
-
-            message:"Pengajuan berhasil dibuat"
+            success: true,
+            message: "Pengajuan berhasil dibuat."
 
         });
 
-    }catch(err){
+    } catch (err) {
 
         console.log(err);
 
         res.json({
 
-            success:false,
-
-            message:err.message
+            success: false,
+            message: err.message
 
         });
 
@@ -1053,25 +809,22 @@ app.post("/pengajuan", async (req, res) => {
 
 });
 
-// =========================
+// =====================================
 // HAPUS PENGAJUAN
-// =========================
+// =====================================
 
 app.delete("/pengajuan/:id", async (req, res) => {
 
-    try{
+    try {
 
         const id = req.params.id;
 
-        // =========================
-        // HAPUS HEADER
-        // =========================
+        // HEADER
 
         const result = await sheets.spreadsheets.values.get({
 
             spreadsheetId: SPREADSHEET_ID,
-
-            range: "Pengajuan!A:K"
+            range: "Pengajuan!A:L"
 
         });
 
@@ -1079,15 +832,7 @@ app.delete("/pengajuan/:id", async (req, res) => {
 
         const header = rows.shift();
 
-        const data = rows.filter(r => r[0] != id);
-
-        await sheets.spreadsheets.values.clear({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range: "Pengajuan!A:K"
-
-        });
+        const data = rows.filter(r => r[0] !== id);
 
         await sheets.spreadsheets.values.update({
 
@@ -1097,22 +842,24 @@ app.delete("/pengajuan/:id", async (req, res) => {
 
             valueInputOption: "USER_ENTERED",
 
-            requestBody:{
+            requestBody: {
 
-                values:[header,...data]
+                values: [
+
+                    header,
+                    ...data
+
+                ]
 
             }
 
         });
 
-        // =========================
-        // HAPUS DETAIL
-        // =========================
+        // DETAIL
 
         const detailResult = await sheets.spreadsheets.values.get({
 
             spreadsheetId: SPREADSHEET_ID,
-
             range: "DetailPengajuan!A:F"
 
         });
@@ -1121,29 +868,7 @@ app.delete("/pengajuan/:id", async (req, res) => {
 
         const detailHeader = detailRows.shift();
 
-        console.log("ID yang akan dihapus :", id);
-
-        detailRows.forEach(r => {
-
-            console.log("ID Detail :", r[1]);
-
-        });
-
-        const detailData = detailRows.filter(r => {
-
-            const idPengajuan = (r[1] || "").trim();
-
-            return idPengajuan !== id.trim();
-
-        });
-
-        await sheets.spreadsheets.values.clear({
-
-            spreadsheetId: SPREADSHEET_ID,
-
-            range: "DetailPengajuan!A:F"
-
-        });
+        const detailData = detailRows.filter(r => r[1] !== id);
 
         await sheets.spreadsheets.values.update({
 
@@ -1153,9 +878,14 @@ app.delete("/pengajuan/:id", async (req, res) => {
 
             valueInputOption: "USER_ENTERED",
 
-            requestBody:{
+            requestBody: {
 
-                values:[detailHeader,...detailData]
+                values: [
+
+                    detailHeader,
+                    ...detailData
+
+                ]
 
             }
 
@@ -1163,31 +893,25 @@ app.delete("/pengajuan/:id", async (req, res) => {
 
         res.json({
 
-            success:true,
-
-            message:"Pengajuan berhasil dihapus."
+            success: true,
+            message: "Pengajuan berhasil dihapus."
 
         });
 
-    }catch(err){
+    } catch (err) {
 
         console.log(err);
 
         res.json({
 
-            success:false,
-
-            message:err.message
+            success: false,
+            message: err.message
 
         });
 
     }
 
 });
-
-// =========================
-// GET APPROVAL MANAGER
-// =========================
 
 // =========================
 // APPROVAL MANAGER
@@ -1198,20 +922,15 @@ app.get("/approval/manager", async (req, res) => {
     try {
 
         const result = await sheets.spreadsheets.values.get({
-
             spreadsheetId: SPREADSHEET_ID,
-
             range: "Pengajuan!A:L"
-
         });
 
         const rows = result.data.values || [];
-
         rows.shift();
 
         const data = rows
             .map(r => ({
-
                 ID: r[0],
                 NO_REQUEST: r[1],
                 TANGGAL: r[2],
@@ -1223,18 +942,12 @@ app.get("/approval/manager", async (req, res) => {
                 APPROVAL2: r[8],
                 APPROVED_AT: r[9],
                 CREATED_AT: r[10]
-
             }))
             .filter(x => x.STATUS === "MENUNGGU_MANAGER");
 
-        console.log("MASUK APPROVAL MANAGER");
-        console.log(data);
         res.json({
-
             success: true,
-
             data
-
         });
 
     } catch (err) {
@@ -1242,11 +955,8 @@ app.get("/approval/manager", async (req, res) => {
         console.log(err);
 
         res.json({
-
             success: false,
-
             message: err.message
-
         });
 
     }
@@ -1257,266 +967,192 @@ app.get("/approval/manager", async (req, res) => {
 // DETAIL APPROVAL
 // =========================
 
-app.get("/approval/detail/:id", async (req,res)=>{
+app.get("/approval/detail/:id", async (req, res) => {
 
-    try{
+    try {
 
-        const id=req.params.id;
+        const id = req.params.id;
 
-        // HEADER
-        const result=await sheets.spreadsheets.values.get({
-
-            spreadsheetId:SPREADSHEET_ID,
-
-            range:"Pengajuan!A:K"
-
+        const result = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Pengajuan!A:L"
         });
 
-        const rows=result.data.values||[];
-
+        const rows = result.data.values || [];
         rows.shift();
 
-        const row=rows.find(r=>r[0]==id);
+        const row = rows.find(r => r[0] == id);
 
-        if(!row){
+        if (!row) {
 
             return res.json({
-
-                success:false,
-
-                message:"Data tidak ditemukan"
-
+                success: false,
+                message: "Data tidak ditemukan"
             });
 
         }
 
-        const header={
-
-            ID:row[0],
-            NO_REQUEST:row[1],
-            TANGGAL:row[2],
-            USER:row[3],
-            TOTAL_ITEM:row[4],
-            KETERANGAN:row[5],
-            STATUS:row[6]
-
+        const header = {
+            ID: row[0],
+            NO_REQUEST: row[1],
+            TANGGAL: row[2],
+            USER: row[3],
+            TOTAL_ITEM: row[4],
+            KETERANGAN: row[5],
+            STATUS: row[6]
         };
 
-        // DETAIL
-        const detailResult=await sheets.spreadsheets.values.get({
-
-            spreadsheetId:SPREADSHEET_ID,
-
-            range:"DetailPengajuan!A:F"
-
+        const detailResult = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "DetailPengajuan!A:F"
         });
 
-        const detailRows=detailResult.data.values||[];
-
+        const detailRows = detailResult.data.values || [];
         detailRows.shift();
 
-        const detail=detailRows
-
-        .filter(r=>r[1]==id)
-
-        .map(r=>({
-
-            ID:r[0],
-            BARANG:r[2],
-            QTY:r[3],
-            SATUAN:r[4]
-
-        }));
+        const detail = detailRows
+            .filter(r => r[1] == id)
+            .map(r => ({
+                ID: r[0],
+                BARANG: r[2],
+                QTY: r[3],
+                SATUAN: r[4]
+            }));
 
         res.json({
-
-            success:true,
-
+            success: true,
             header,
-
             detail
-
         });
 
-    }
-
-    catch(err){
+    } catch (err) {
 
         console.log(err);
 
         res.json({
-
-            success:false,
-
-            message:err.message
-
+            success: false,
+            message: err.message
         });
 
     }
 
 });
 
-app.put("/approval/:id", async (req,res)=>{
-    
+// =========================
+// APPROVE / REJECT
+// =========================
 
-    try{
+app.put("/approval/:id", async (req, res) => {
+
+    try {
 
         const { aksi, user } = req.body;
-        console.log(req.body);
-        console.log("AKSI =", aksi);
         const id = req.params.id;
 
         const result = await sheets.spreadsheets.values.get({
-
-            spreadsheetId:SPREADSHEET_ID,
-            range:"Pengajuan!A:L"
-
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Pengajuan!A:L"
         });
 
-        const rows=result.data.values||[];
+        const rows = result.data.values || [];
+        const header = rows.shift();
 
-        const header=rows.shift();
+        const index = rows.findIndex(r => r[0] == id);
 
-        const index=rows.findIndex(r=>r[0]==id);
-
-        if(index==-1){
+        if (index == -1) {
 
             return res.json({
-
-                success:false,
-                message:"Data tidak ditemukan"
-
+                success: false,
+                message: "Data tidak ditemukan"
             });
 
         }
 
         const row = rows[index];
-
-        const now = new Date().toLocaleString("id-ID",{
-            timeZone:"Asia/Jakarta"
-        });
-
-        if(aksi=="approve"){
-
-            if(row[6]=="MENUNGGU_MANAGER"){
-
-                row[6]="MENUNGGU_OWNER";
-                row[7]=user;
-
-            }else{
-
-                row[6]="DISETUJUI";
-                row[8]=user;
-                row[9]=now;
-
-            }
-
-        }else{
-
-            row[6]="DITOLAK";
-
-            if(!row[7]){
-
-                row[7]=user;
-
-            }else{
-
-                row[8]=user;
-
-            }
-
-            row[9]=now;
-
-        }
-
-        rows[index]=row;
-
-        await sheets.spreadsheets.values.clear({
-
-            spreadsheetId:SPREADSHEET_ID,
-            range:"Pengajuan!A:L"
-
-        });
-
-        await sheets.spreadsheets.values.update({
-
-            spreadsheetId:SPREADSHEET_ID,
-            range:"Pengajuan!A1",
-            valueInputOption:"USER_ENTERED",
-            requestBody:{
-
-                values:[header,...rows]
-
-            }
-
-        });
-
-        let pesan = "";
+        const now = nowJakarta();
 
         if (aksi == "approve") {
 
-            pesan = "Pengajuan berhasil disetujui";
+            if (row[6] == "MENUNGGU_MANAGER") {
+
+                row[6] = "MENUNGGU_OWNER";
+                row[7] = user;
+
+            } else {
+
+                row[6] = "DISETUJUI";
+                row[8] = user;
+                row[9] = now;
+
+            }
 
         } else {
 
-            pesan = "Pengajuan berhasil ditolak";
+            row[6] = "DITOLAK";
+
+            if (!row[7]) {
+                row[7] = user;
+            } else {
+                row[8] = user;
+            }
+
+            row[9] = now;
 
         }
 
-        // =========================
-        // SIMPAN APPROVAL LOG
-        // =========================
+        rows[index] = row;
+
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Pengajuan!A1",
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values: [header, ...rows]
+            }
+        });
+
+        // Approval Log
 
         const approvalResult = await sheets.spreadsheets.values.get({
-
             spreadsheetId: SPREADSHEET_ID,
             range: "ApprovalLog!A:G"
-
         });
 
         const approvalRows = approvalResult.data.values || [];
 
         approvalRows.push([
-
-            crypto.randomUUID(), // ID Log
-            row[0],              // ID Pengajuan
-            row[1],              // No Request
-            user,                // Approver
-            user,                // Role (sementara)
-            aksi.toUpperCase(),  // APPROVE / REJECT
-            now                  // Waktu
-
+            crypto.randomUUID(),
+            row[0],
+            row[1],
+            user,
+            user,
+            aksi.toUpperCase(),
+            now
         ]);
 
         await sheets.spreadsheets.values.update({
-
             spreadsheetId: SPREADSHEET_ID,
             range: "ApprovalLog!A1",
             valueInputOption: "USER_ENTERED",
             requestBody: {
-
                 values: approvalRows
-
             }
-
         });
 
         res.json({
-
             success: true,
-            message: pesan
-
+            message: aksi == "approve"
+                ? "Pengajuan berhasil disetujui"
+                : "Pengajuan berhasil ditolak"
         });
 
-    }catch(err){
+    } catch (err) {
 
         console.log(err);
 
         res.json({
-
-            success:false,
-            message:err.message
-
+            success: false,
+            message: err.message
         });
 
     }
@@ -1527,69 +1163,9 @@ app.put("/approval/:id", async (req,res)=>{
 // APPROVAL OWNER
 // =========================
 
-app.get("/approval/owner", async (req,res)=>{
+app.get("/approval/owner", async (req, res) => {
 
-    try{
-
-        const result = await sheets.spreadsheets.values.get({
-
-            spreadsheetId:SPREADSHEET_ID,
-
-            range:"Pengajuan!A:K"
-
-        });
-
-        const rows = result.data.values || [];
-
-        rows.shift();
-
-        const data = rows
-
-        .map(r=>({
-
-            ID:r[0],
-            NO_REQUEST:r[1],
-            TANGGAL:r[2],
-            USER:r[3],
-            TOTAL_ITEM:r[4],
-            KETERANGAN:r[5],
-            STATUS:r[6],
-            APPROVAL1:r[7],
-            APPROVAL2:r[8],
-            APPROVED_AT:r[9],
-            CREATED_AT:r[10]
-
-        }))
-
-        .filter(x=>x.STATUS=="MENUNGGU_OWNER");
-
-        res.json({
-
-            success:true,
-
-            data
-
-        });
-
-    }catch(err){
-
-        console.log(err);
-
-        res.json({
-
-            success:false,
-
-            message:err.message
-
-        });
-
-    }
-
-});
-
-app.get("/approval/all", async (req,res)=>{
-
-    try{
+    try {
 
         const result = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
@@ -1599,41 +1175,47 @@ app.get("/approval/all", async (req,res)=>{
         const rows = result.data.values || [];
         rows.shift();
 
-        const data = rows.map(r=>({
-
-            ID:r[0],
-            NO_REQUEST:r[1],
-            TANGGAL:r[2],
-            USER:r[3],
-            TOTAL_ITEM:r[4],
-            KETERANGAN:r[5],
-            STATUS:r[6],
-            APPROVAL1:r[7],
-            APPROVAL2:r[8],
-            APPROVED_AT:r[9],
-            CREATED_AT:r[10]
-
-        }));
+        const data = rows
+            .map(r => ({
+                ID: r[0],
+                NO_REQUEST: r[1],
+                TANGGAL: r[2],
+                USER: r[3],
+                TOTAL_ITEM: r[4],
+                KETERANGAN: r[5],
+                STATUS: r[6],
+                APPROVAL1: r[7],
+                APPROVAL2: r[8],
+                APPROVED_AT: r[9],
+                CREATED_AT: r[10]
+            }))
+            .filter(x => x.STATUS == "MENUNGGU_OWNER");
 
         res.json({
-            success:true,
+            success: true,
             data
         });
 
-    }catch(err){
+    } catch (err) {
+
+        console.log(err);
 
         res.json({
-            success:false,
-            message:err.message
+            success: false,
+            message: err.message
         });
 
     }
 
 });
 
-app.get("/dashboard", async (req, res) => {
+// =========================
+// APPROVAL ALL
+// =========================
 
-    try{
+app.get("/approval/all", async (req, res) => {
+
+    try {
 
         const result = await sheets.spreadsheets.values.get({
 
@@ -1654,20 +1236,329 @@ app.get("/dashboard", async (req, res) => {
             USER: r[3],
             TOTAL_ITEM: r[4],
             KETERANGAN: r[5],
-            STATUS: r[6]
+            STATUS: r[6],
+            APPROVAL1: r[7],
+            APPROVAL2: r[8],
+            APPROVED_AT: r[9],
+            CREATED_AT: r[10]
 
         }));
 
         res.json({
+
             success: true,
             data
+
         });
 
-    }catch(err){
+    } catch (err) {
+
+        console.log(err);
 
         res.json({
+
             success: false,
             message: err.message
+
+        });
+
+    }
+
+});
+
+// =========================
+// GET USERS
+// =========================
+
+app.get("/users", async (req, res) => {
+
+    try {
+
+        const result = await sheets.spreadsheets.values.get({
+
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Users!A:G"
+
+        });
+
+        const rows = result.data.values || [];
+
+        rows.shift();
+
+        const data = rows.map(r => ({
+
+            ID: r[0],
+            NAMA: r[1],
+            USERNAME: r[2],
+            ROLE: r[4],
+            STATUS: r[5],
+            CREATED_AT: r[6]
+
+        }));
+
+        res.json({
+
+            success: true,
+            data
+
+        });
+
+    } catch (err) {
+
+        res.json({
+
+            success: false,
+            message: err.message
+
+        });
+
+    }
+
+});
+
+// =========================
+// TAMBAH USER
+// =========================
+
+app.post("/users", async (req, res) => {
+
+    try {
+
+        const {
+
+            nama,
+            username,
+            password,
+            role,
+            status
+
+        } = req.body;
+
+        const hash = crypto
+            .createHash("sha256")
+            .update(password)
+            .digest("hex");
+
+        await sheets.spreadsheets.values.append({
+
+            spreadsheetId: SPREADSHEET_ID,
+
+            range: "Users!A:G",
+
+            valueInputOption: "USER_ENTERED",
+
+            requestBody: {
+
+                values: [[
+
+                    crypto.randomUUID(),
+                    nama,
+                    username,
+                    hash,
+                    role,
+                    status || "ACTIVE",
+                    nowJakarta()
+
+                ]]
+
+            }
+
+        });
+
+        await saveActivity(
+
+            nama,
+            "TAMBAH USER",
+            username
+
+        );
+
+        res.json({
+
+            success: true,
+            message: "User berhasil ditambahkan"
+
+        });
+
+    } catch (err) {
+
+        res.json({
+
+            success: false,
+            message: err.message
+
+        });
+
+    }
+
+});
+
+// =========================
+// UPDATE USER
+// =========================
+
+app.put("/users/:id", async (req, res) => {
+
+    try {
+
+        const id = req.params.id;
+
+        const {
+
+            nama,
+            username,
+            password,
+            role,
+            status
+
+        } = req.body;
+
+        const result = await sheets.spreadsheets.values.get({
+
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Users!A:G"
+
+        });
+
+        const rows = result.data.values || [];
+
+        const header = rows.shift();
+
+        const index = rows.findIndex(r => r[0] == id);
+
+        if (index == -1) {
+
+            return res.json({
+
+                success: false,
+                message: "User tidak ditemukan"
+
+            });
+
+        }
+
+        let hash = rows[index][3];
+
+        if (password) {
+
+            hash = crypto
+                .createHash("sha256")
+                .update(password)
+                .digest("hex");
+
+        }
+
+        rows[index] = [
+
+            id,
+            nama,
+            username,
+            hash,
+            role,
+            status,
+            rows[index][6]
+
+        ];
+
+        await sheets.spreadsheets.values.update({
+
+            spreadsheetId: SPREADSHEET_ID,
+
+            range: "Users!A1",
+
+            valueInputOption: "USER_ENTERED",
+
+            requestBody: {
+
+                values: [
+
+                    header,
+                    ...rows
+
+                ]
+
+            }
+
+        });
+
+        res.json({
+
+            success: true,
+            message: "User berhasil diupdate"
+
+        });
+
+    } catch (err) {
+
+        res.json({
+
+            success: false,
+            message: err.message
+
+        });
+
+    }
+
+});
+
+// =========================
+// DELETE USER
+// =========================
+
+app.delete("/users/:id", async (req, res) => {
+
+    try {
+
+        const id = req.params.id;
+
+        const result = await sheets.spreadsheets.values.get({
+
+            spreadsheetId: SPREADSHEET_ID,
+            range: "Users!A:G"
+
+        });
+
+        const rows = result.data.values || [];
+
+        const header = rows.shift();
+
+        const data = rows.filter(r => r[0] != id);
+
+        await sheets.spreadsheets.values.update({
+
+            spreadsheetId: SPREADSHEET_ID,
+
+            range: "Users!A1",
+
+            valueInputOption: "USER_ENTERED",
+
+            requestBody: {
+
+                values: [
+
+                    header,
+                    ...data
+
+                ]
+
+            }
+
+        });
+
+        res.json({
+
+            success: true,
+            message: "User berhasil dihapus"
+
+        });
+
+    } catch (err) {
+
+        res.json({
+
+            success: false,
+            message: err.message
+
         });
 
     }
@@ -1678,9 +1569,8 @@ app.get("/dashboard", async (req, res) => {
 // START SERVER
 // =========================
 
-app.listen(3000, () => {
+app.listen(PORT, () => {
 
-    console.log("Server running : http://localhost:3000");
+    console.log(`Server running on port ${PORT}`);
 
 });
-
