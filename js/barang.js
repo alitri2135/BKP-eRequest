@@ -456,7 +456,8 @@ document.addEventListener("click", async function(e){
         });
 
         const res = await response.json();
-
+        console.log("Status HTTP:", response.status);
+        console.log("Response:", res);
         if(!res.success){
 
             Swal.fire(
