@@ -3,12 +3,8 @@
 // =====================================
 
 let approval = [];
-
 let modalApproval = null;
-
 let selectedApproval = null;
-
-const currentUser = JSON.parse(localStorage.getItem("user"));
 
 // =====================================
 // INIT
@@ -36,21 +32,7 @@ async function loadApproval(){
 
         const currentUser = JSON.parse(localStorage.getItem("user"));
 
-        let url = "";
-
-        if(currentUser.role == "Admin"){
-
-            url = API_URL + "/approval/all";
-
-        }else if(currentUser.role == "Manager"){
-
-            url = API_URL + "/approval/manager";
-
-        }else if(currentUser.role == "Owner"){
-
-            url = API_URL + "/approval/owner";
-
-        }else{
+        if(!currentUser){
 
             approval = [];
             renderApproval();
@@ -59,46 +41,68 @@ async function loadApproval(){
 
         }
 
-        console.log("URL:", url);
-        
+        let url = "";
+
+        switch(currentUser.role){
+
+            case "Admin":
+                url = API_URL + "/approval/all";
+                break;
+
+            case "Manager":
+                url = API_URL + "/approval/manager";
+                break;
+
+            case "Owner":
+                url = API_URL + "/approval/owner";
+                break;
+
+            default:
+
+                approval = [];
+                renderApproval();
+                renderStatApproval();
+                return;
+
+        }
+
         const response = await fetch(url);
-        
-        console.log("STATUS:", response.status);
-        
         const json = await response.json();
-        
-        console.log("JSON:", json);
-        
-        approval = json.data || [];
-        
-        console.log("APPROVAL:", approval);
-        
+
+        if(!json.success){
+
+            Swal.fire("Error", json.message, "error");
+
+            approval = [];
+
+        }else{
+
+            approval = json.data || [];
+
+        }
+
         renderApproval();
         renderStatApproval();
 
     }catch(err){
 
-        console.log(err);
+        console.error(err);
+
+        Swal.fire("Error", err.message, "error");
 
     }
 
 }
 
-// =====================================
-// RENDER
-// =====================================
-
-// =====================================
-// RENDER
-// =====================================
-
 function renderApproval(){
 
     const tbody = document.getElementById("approvalBody");
 
+    if(!tbody) return;
+
     tbody.innerHTML = "";
 
-    if(approval.length == 0){
+    if(approval.length === 0){
 
         tbody.innerHTML = `
             <tr>
@@ -118,39 +122,34 @@ function renderApproval(){
 
         let badge = "bg-warning";
 
-        if(item.STATUS == "DISETUJUI"){
+        switch(item.STATUS){
 
-            badge = "bg-success";
+            case "DISETUJUI":
+                badge = "bg-success";
+                break;
 
-        }else if(item.STATUS == "DITOLAK"){
+            case "DITOLAK":
+                badge = "bg-danger";
+                break;
 
-            badge = "bg-danger";
-
-        }else if(item.STATUS == "MENUNGGU_OWNER"){
-
-            badge = "bg-info";
+            case "MENUNGGU_OWNER":
+                badge = "bg-info";
+                break;
 
         }
 
         tbody.innerHTML += `
             <tr>
-
                 <td>${index+1}</td>
-
                 <td>${item.NO_REQUEST}</td>
-
                 <td>${item.TANGGAL}</td>
-
                 <td>${item.USER}</td>
-
                 <td>${item.TOTAL_ITEM}</td>
-
                 <td>
                     <span class="badge ${badge}">
                         ${item.STATUS}
                     </span>
                 </td>
-
                 <td>
                     <button
                         class="btn btn-primary btn-sm btn-detail-approval"
@@ -158,14 +157,13 @@ function renderApproval(){
                         Detail
                     </button>
                 </td>
-
             </tr>
         `;
 
     });
 
     document.getElementById("infoApproval").innerHTML =
-        approval.length + " Data";
+        `${approval.length} Data`;
 
 }
 
@@ -179,47 +177,26 @@ document.addEventListener("click", async function(e){
 
     if(!btn) return;
 
-    const id = btn.dataset.id;
-
-    selectedApproval = id;
-
     try{
 
-        const response = await fetch(API_URL + "/approval/detail/" + id);
+        const response = await fetch(
+            API_URL + "/approval/detail/" + btn.dataset.id
+        );
 
-        const json = await response.json();
-
-        console.log(json);
-
-    }catch(err){
-
-        console.log(err);
-
-    }
-
-});
-
-document.addEventListener("click", async function(e){
-
-    const btn = e.target.closest(".btn-detail-approval");
-    if(!btn) return;
-
-    const id = btn.dataset.id;
-
-    try{
-
-        const response = await fetch(API_URL + "/approval/detail/" + id);
         const json = await response.json();
 
         if(!json.success){
+
             Swal.fire("Error", json.message, "error");
             return;
+
         }
 
         selectedApproval = json.header;
 
         document.getElementById("approvalDetail").innerHTML = `
             <div class="row">
+
                 <div class="col-md-4">
                     <b>No Pengajuan</b><br>
                     ${json.header.NO_REQUEST}
@@ -234,154 +211,201 @@ document.addEventListener("click", async function(e){
                     <b>Status</b><br>
                     ${json.header.STATUS}
                 </div>
+
             </div>
         `;
 
         const tbody = document.getElementById("approvalDetailBody");
+
         tbody.innerHTML = "";
 
-        json.detail.forEach((item,index)=>{
+        if(json.detail.length === 0){
 
-            tbody.innerHTML += `
+            tbody.innerHTML = `
                 <tr>
-                    <td>${index+1}</td>
-                    <td>-</td>
-                    <td>${item.BARANG}</td>
-                    <td>${item.QTY}</td>
-                    <td>${item.SATUAN}</td>
+                    <td colspan="5" class="text-center">
+                        Tidak ada detail.
+                    </td>
                 </tr>
             `;
 
-        });
+        }else{
+
+            json.detail.forEach((item,index)=>{
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${index+1}</td>
+                        <td>-</td>
+                        <td>${item.BARANG}</td>
+                        <td>${item.QTY}</td>
+                        <td>${item.SATUAN}</td>
+                    </tr>
+                `;
+
+            });
+
+        }
 
         modalApproval.show();
 
     }catch(err){
 
-        console.log(err);
+        console.error(err);
+
+        Swal.fire("Error", err.message, "error");
 
     }
 
 });
+
+// =====================================
+// APPROVE
+// =====================================
 
 document.addEventListener("click", async function(e){
 
     if(!e.target.closest("#btnApprove")) return;
 
-    const currentUser = JSON.parse(localStorage.getItem("user"));
-    console.log(currentUser);
+    if(!selectedApproval) return;
 
-    const response = await fetch(API_URL+"/approval/"+selectedApproval.ID,{
+    try{
 
-        method:"PUT",
+        const currentUser = JSON.parse(localStorage.getItem("user"));
 
-        headers:{
-            "Content-Type":"application/json"
-        },
+        const response = await fetch(
+            API_URL + "/approval/" + selectedApproval.ID,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    aksi: "approve",
+                    user: currentUser.nama
+                })
+            }
+        );
 
-        body:JSON.stringify({
+        const json = await response.json();
 
-            aksi:"approve",
-            user:currentUser.nama
+        if(!json.success){
 
-        })
+            Swal.fire("Error", json.message, "error");
+            return;
 
-    });
-
-    const json = await response.json();
-
-    if(json.success){
+        }
 
         Swal.fire("Sukses", json.message, "success");
 
         modalApproval.hide();
 
-        loadApproval();
+        selectedApproval = null;
 
-    }else{
+        await loadApproval();
 
-        Swal.fire("Error", json.message, "error");
+    }catch(err){
+
+        console.error(err);
+
+        Swal.fire("Error", err.message, "error");
 
     }
 
 });
+
+// =====================================
+// REJECT
+// =====================================
 
 document.addEventListener("click", async function(e){
 
     if(!e.target.closest("#btnReject")) return;
 
-    const response = await fetch(API_URL+"/approval/"+selectedApproval.ID,{
+    if(!selectedApproval) return;
 
-        method:"PUT",
+    try{
 
-        headers:{
-            "Content-Type":"application/json"
-        },
+        const currentUser = JSON.parse(localStorage.getItem("user"));
 
-        body:JSON.stringify({
+        const response = await fetch(
+            API_URL + "/approval/" + selectedApproval.ID,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    aksi: "reject",
+                    user: currentUser.nama
+                })
+            }
+        );
 
-            aksi:"reject",
-            user:currentUser.nama
+        const json = await response.json();
 
-        })
+        if(!json.success){
 
-    });
+            Swal.fire("Error", json.message, "error");
+            return;
 
-    const json = await response.json();
-
-    if(json.success){
+        }
 
         Swal.fire("Sukses", json.message, "success");
 
         modalApproval.hide();
 
-        loadApproval();
+        selectedApproval = null;
 
-    }else{
+        await loadApproval();
 
-        Swal.fire("Error", json.message, "error");
+    }catch(err){
+
+        console.error(err);
+
+        Swal.fire("Error", err.message, "error");
 
     }
 
 });
 
+// =====================================
+// STATISTIK
+// =====================================
+
 function renderStatApproval(){
 
-    document.getElementById("statApproval1").innerHTML =
-        approval.filter(x => x.STATUS == "MENUNGGU_MANAGER").length;
+    const statApproval1 = document.getElementById("statApproval1");
+    const statApproval2 = document.getElementById("statApproval2");
+    const statApprove = document.getElementById("statApprove");
+    const statReject = document.getElementById("statReject");
 
-    document.getElementById("statApproval2").innerHTML =
-        approval.filter(x => x.STATUS == "MENUNGGU_OWNER").length;
+    if(statApproval1){
 
-    document.getElementById("statApprove").innerHTML =
-        approval.filter(x => x.STATUS == "DISETUJUI").length;
+        statApproval1.innerHTML =
+            approval.filter(x => x.STATUS === "MENUNGGU_MANAGER").length;
 
-    document.getElementById("statReject").innerHTML =
-        approval.filter(x => x.STATUS == "DITOLAK").length;
+    }
 
-}
+    if(statApproval2){
 
-function updateApprovalDashboard(){
+        statApproval2.innerHTML =
+            approval.filter(x => x.STATUS === "MENUNGGU_OWNER").length;
 
-    const approval1 = pengajuan.filter(item =>
-        item.status === "Menunggu Approval 1"
-    ).length;
+    }
 
-    const approval2 = pengajuan.filter(item =>
-        item.status === "Menunggu Approval 2"
-    ).length;
+    if(statApprove){
 
-    const disetujui = pengajuan.filter(item =>
-        item.status === "Disetujui"
-    ).length;
+        statApprove.innerHTML =
+            approval.filter(x => x.STATUS === "DISETUJUI").length;
 
-    const ditolak = pengajuan.filter(item =>
-        item.status === "Ditolak"
-    ).length;
+    }
 
-    document.getElementById("approval1Total").innerHTML = approval1;
-    document.getElementById("approval2Total").innerHTML = approval2;
-    document.getElementById("approvalSetuju").innerHTML = disetujui;
-    document.getElementById("approvalTolak").innerHTML = ditolak;
+    if(statReject){
+
+        statReject.innerHTML =
+            approval.filter(x => x.STATUS === "DITOLAK").length;
+
+    }
 
 }
