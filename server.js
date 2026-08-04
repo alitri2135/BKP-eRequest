@@ -271,12 +271,13 @@ app.get("/dashboard", async (req, res) => {
         activityRows = activityRows.reverse().slice(0,10);
 
         const activity = activityRows.map(r => ({
-
-            WAKTU: r[0] || "",
+        
+            ID: r[0] || "",
             USER: r[1] || "",
             AKTIVITAS: r[2] || "",
-            KETERANGAN: r[3] || ""
-
+            KETERANGAN: r[3] || "",
+            WAKTU: r[4] || ""
+        
         }));
 
         res.json({
