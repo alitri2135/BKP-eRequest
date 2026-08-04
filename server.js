@@ -598,17 +598,24 @@ app.delete("/barang/:id", async (req, res) => {
         const index = rows.findIndex(r => r[0] === id);
 
         if (index === -1) {
-
+        
             return res.json({
-
+        
                 success: false,
                 message: "Barang tidak ditemukan."
-
+        
             });
-
+        
         }
-
+        
+        console.log("SEBELUM SPLICE");
+        console.log(rows);
+        console.log("INDEX =", index);
+        
         rows.splice(index, 1);
+        
+        console.log("SESUDAH SPLICE");
+        console.log(rows);
 
         await sheets.spreadsheets.values.update({
 
