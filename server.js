@@ -4,7 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const { google } = require("googleapis");
 const crypto = require("crypto");
-
+const SHEET_BARANG_ID = 1794672020;
 const app = express();
 
 app.use(cors());
@@ -593,44 +593,48 @@ app.delete("/barang/:id", async (req, res) => {
 
         const rows = result.data.values || [];
 
-        const header = rows.shift();
+        rows.shift(); // hapus header
 
         const index = rows.findIndex(r => r[0] === id);
 
         if (index === -1) {
-        
+
             return res.json({
-        
+
                 success: false,
                 message: "Barang tidak ditemukan."
-        
-            });
-        
-        }
-        
-        console.log("SEBELUM SPLICE");
-        console.log(rows);
-        console.log("INDEX =", index);
-        
-        rows.splice(index, 1);
-        
-        console.log("SESUDAH SPLICE");
-        console.log(rows);
 
-        await sheets.spreadsheets.values.update({
+            });
+
+        }
+
+        // Hapus baris langsung di Google Sheets
+        await sheets.spreadsheets.batchUpdate({
 
             spreadsheetId: SPREADSHEET_ID,
 
-            range: "Barang!A1",
-
-            valueInputOption: "USER_ENTERED",
-
             requestBody: {
 
-                values: [
+                requests: [
 
-                    header,
-                    ...rows
+                    {
+
+                        deleteDimension: {
+
+                            range: {
+
+                                sheetId: SHEET_BARANG_ID,
+                                dimension: "ROWS",
+
+                                // +1 karena baris pertama adalah header
+                                startIndex: index + 1,
+                                endIndex: index + 2
+
+                            }
+
+                        }
+
+                    }
 
                 ]
 
